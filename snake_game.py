@@ -1,106 +1,97 @@
 import pygame
-import random
 import sys
 
-# Initialize pygame
+# Initialize Pygame
 pygame.init()
 
 # Screen dimensions
-WIDTH, HEIGHT = 600, 400
+WIDTH, HEIGHT = 800, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Snake Game")
+pygame.display.set_caption("Pong Game")
 
 # Colors
 WHITE = (255, 255, 255)
-GREEN = (0, 200, 0)
-RED = (200, 0, 0)
 BLACK = (0, 0, 0)
 
-# Game variables
-block_size = 20
-snake = [[100, 50], [80, 50], [60, 50]]
-snake_direction = 'RIGHT'
-food_x = random.randint(0, (WIDTH - block_size) // block_size) * block_size
-food_y = random.randint(0, (HEIGHT - block_size) // block_size) * block_size
-score = 0
-font = pygame.font.Font(None, 36)
+# Paddle dimensions
+PADDLE_WIDTH, PADDLE_HEIGHT = 10, 100
+BALL_SIZE = 15
+
+# Speeds
+BALL_SPEED = [4, 4]
+PADDLE_SPEED = 6
+
+# Clock
 clock = pygame.time.Clock()
 
-# Game over function
-def game_over():
-    game_over_text = font.render("Game Over!", True, RED)
-    screen.blit(game_over_text, (WIDTH // 2 - 80, HEIGHT // 2 - 20))
-    pygame.display.flip()
-    pygame.time.delay(2000)
-    pygame.quit()
-    sys.exit()
+# Create Paddles and Ball
+player1_paddle = pygame.Rect(20, (HEIGHT // 2) - (PADDLE_HEIGHT // 2), PADDLE_WIDTH, PADDLE_HEIGHT)
+player2_paddle = pygame.Rect(WIDTH - 30, (HEIGHT // 2) - (PADDLE_HEIGHT // 2), PADDLE_WIDTH, PADDLE_HEIGHT)
+ball = pygame.Rect(WIDTH // 2, HEIGHT // 2, BALL_SIZE, BALL_SIZE)
 
-# Game loop
+# Scores
+player1_score = 0
+player2_score = 0
+font = pygame.font.Font(None, 50)
+
+def reset_ball():
+    ball.x, ball.y = WIDTH // 2, HEIGHT // 2
+    BALL_SPEED[0] *= -1  # Switch ball direction
+
+# Main game loop
 running = True
 while running:
-    screen.fill(WHITE)
-
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
+            pygame.quit()
+            sys.exit()
 
-    # Snake direction control
+    # Key Presses
     keys = pygame.key.get_pressed()
-    if keys[pygame.K_UP] and snake_direction != 'DOWN':
-        snake_direction = 'UP'
-    if keys[pygame.K_DOWN] and snake_direction != 'UP':
-        snake_direction = 'DOWN'
-    if keys[pygame.K_LEFT] and snake_direction != 'RIGHT':
-        snake_direction = 'LEFT'
-    if keys[pygame.K_RIGHT] and snake_direction != 'LEFT':
-        snake_direction = 'RIGHT'
+    # Player 1 controls
+    if keys[pygame.K_w] and player1_paddle.top > 0:
+        player1_paddle.y -= PADDLE_SPEED
+    if keys[pygame.K_s] and player1_paddle.bottom < HEIGHT:
+        player1_paddle.y += PADDLE_SPEED
+    # Player 2 controls
+    if keys[pygame.K_UP] and player2_paddle.top > 0:
+        player2_paddle.y -= PADDLE_SPEED
+    if keys[pygame.K_DOWN] and player2_paddle.bottom < HEIGHT:
+        player2_paddle.y += PADDLE_SPEED
 
-    # Move the snake
-    head = snake[0]
-    if snake_direction == 'UP':
-        new_head = [head[0], head[1] - block_size]
-    elif snake_direction == 'DOWN':
-        new_head = [head[0], head[1] + block_size]
-    elif snake_direction == 'LEFT':
-        new_head = [head[0] - block_size, head[1]]
-    elif snake_direction == 'RIGHT':
-        new_head = [head[0] + block_size, head[1]]
+    # Ball movement
+    ball.x += BALL_SPEED[0]
+    ball.y += BALL_SPEED[1]
 
-    # Add new head
-    snake.insert(0, new_head)
+    # Ball collision with top/bottom walls
+    if ball.top <= 0 or ball.bottom >= HEIGHT:
+        BALL_SPEED[1] = -BALL_SPEED[1]
 
-    # Check if snake eats the food
-    if snake[0][0] == food_x and snake[0][1] == food_y:
-        score += 1
-        food_x = random.randint(0, (WIDTH - block_size) // block_size) * block_size
-        food_y = random.randint(0, (HEIGHT - block_size) // block_size) * block_size
-    else:
-        snake.pop()
+    # Ball collision with paddles
+    if ball.colliderect(player1_paddle) or ball.colliderect(player2_paddle):
+        BALL_SPEED[0] = -BALL_SPEED[0]
 
-    # Check if snake hits itself or walls
-    if (
-        new_head in snake[1:]
-        or new_head[0] < 0
-        or new_head[0] >= WIDTH
-        or new_head[1] < 0
-        or new_head[1] >= HEIGHT
-    ):
-        game_over()
+    # Ball out of bounds
+    if ball.left <= 0:
+        player2_score += 1
+        reset_ball()
+    if ball.right >= WIDTH:
+        player1_score += 1
+        reset_ball()
 
-    # Draw the food
-    pygame.draw.rect(screen, RED, (food_x, food_y, block_size, block_size))
-    # Draw the snake
-    for block in snake:
-        pygame.draw.rect(screen, GREEN, (block[0], block[1], block_size, block_size))
-    # Draw the score
-    score_text = font.render(f"Score : {score}", True, BLACK)
-    screen.blit(score_text, (10, 10))
-    # Update display
+    # Draw everything
+    screen.fill(BLACK)
+    pygame.draw.rect(screen, WHITE, player1_paddle)
+    pygame.draw.rect(screen, WHITE, player2_paddle)
+    pygame.draw.ellipse(screen, WHITE, ball)
+    pygame.draw.aaline(screen, WHITE, (WIDTH // 2, 0), (WIDTH // 2, HEIGHT))
+
+    # Display Scores
+    player1_text = font.render(str(player1_score), True, WHITE)
+    player2_text = font.render(str(player2_score), True, WHITE)
+    screen.blit(player1_text, (WIDTH // 4, 20))
+    screen.blit(player2_text, (WIDTH * 3 // 4, 20))
+
+    # Update the display
     pygame.display.flip()
-    # Control frame rate
-    clock.tick(7)
-
-# Quit game
-pygame.quit()
-sys.exit()
-            
+    clock.tick(60)
